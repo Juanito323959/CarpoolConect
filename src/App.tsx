@@ -34,15 +34,16 @@ export default function App() {
 
   useEffect(() => {
     // Safety timeout: ensure loading screen disappears after 8 seconds 
-    // even if Firebase Auth is hanging on mobile
+    let isMounted = true;
     const timer = setTimeout(() => {
-      setLoading(false);
+      if (isMounted) setLoading(false);
     }, 8000);
 
     // Handle redirect result from Google login (crucial for mobile)
-    getRedirectResult(auth)
-      .then(async (result) => {
-        if (result) {
+    const handleRedirect = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result && isMounted) {
           const firebaseUser = result.user;
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
           if (userDoc.exists()) {
@@ -61,27 +62,32 @@ export default function App() {
             sessionStorage.removeItem('pendingRole');
           }
         }
-      })
-      .catch((error) => {
-        console.error("Error al procesar el redireccionamiento de auth:", error);
-      });
+      } catch (error) {
+        console.error("Auth redirect error:", error);
+      }
+    };
+
+    handleRedirect();
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!isMounted) return;
+      
       if (firebaseUser) {
-        // Fetch user document from Firestore
-        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-        if (userDoc.exists()) {
-          setUser(userDoc.data() as User);
-        } else {
-          // If user exists in Auth but not Firestore (e.g. first login)
-          // Profile.tsx or Register.tsx should handle this, but we set a temp state
-          setUser({
-            id: firebaseUser.uid,
-            email: firebaseUser.email || '',
-            name: firebaseUser.displayName || 'Usuario',
-            role: 'passenger', // default
-            photo: firebaseUser.photoURL || undefined
-          } as User);
+        try {
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          if (userDoc.exists()) {
+            setUser(userDoc.data() as User);
+          } else {
+            setUser({
+              id: firebaseUser.uid,
+              email: firebaseUser.email || '',
+              name: firebaseUser.displayName || 'Usuario',
+              role: 'passenger',
+              photo: firebaseUser.photoURL || undefined
+            } as User);
+          }
+        } catch (e) {
+          console.error("Firestore fetch error:", e);
         }
       } else {
         setUser(null);
@@ -90,6 +96,7 @@ export default function App() {
     });
 
     return () => {
+      isMounted = false;
       unsubscribe();
       clearTimeout(timer);
     };
