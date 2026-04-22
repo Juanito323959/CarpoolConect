@@ -33,22 +33,25 @@ export default function App() {
   };
 
   useEffect(() => {
-    // Safety timeout: ensure loading screen disappears after 8 seconds 
     let isMounted = true;
+    
+    // Safety timer to clear loading even if something fails
     const timer = setTimeout(() => {
       if (isMounted) setLoading(false);
-    }, 8000);
+    }, 12000);
 
-    // Handle redirect result from Google login (crucial for mobile)
-    const handleRedirect = async () => {
+    const initializeAuth = async () => {
       try {
+        // 1. Handle redirect result first (crucial for mobile/PWA)
         const result = await getRedirectResult(auth);
         if (result && isMounted) {
           const firebaseUser = result.user;
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          
           if (userDoc.exists()) {
             setUser(userDoc.data() as User);
           } else {
+            // Restore role from localStorage if it's a new user
             const pendingRole = localStorage.getItem('pendingRole') as UserRole || 'passenger';
             const userData = {
               id: firebaseUser.uid,
@@ -62,42 +65,45 @@ export default function App() {
             localStorage.removeItem('pendingRole');
           }
         }
+
+        // 2. Setup standard listener
+        onAuthStateChanged(auth, async (firebaseUser) => {
+          if (!isMounted) return;
+          
+          if (firebaseUser) {
+            try {
+              const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+              if (userDoc.exists()) {
+                setUser(userDoc.data() as User);
+              } else {
+                // If it's a new user and we didn't handle it in redirect result
+                // we fallback to passenger but wait a bit to see if redirect catch it
+                setUser((prev) => prev || {
+                  id: firebaseUser.uid,
+                  email: firebaseUser.email || '',
+                  name: firebaseUser.displayName || 'Usuario',
+                  role: 'passenger',
+                  photo: firebaseUser.photoURL || undefined
+                } as User);
+              }
+            } catch (e) {
+              console.error("Firestore fetch error:", e);
+            }
+          } else {
+            setUser(null);
+          }
+          setLoading(false);
+        });
       } catch (error) {
-        console.error("Auth redirect error:", error);
+        console.error("Initialization error:", error);
+        setLoading(false);
       }
     };
 
-    handleRedirect();
-
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (!isMounted) return;
-      
-      if (firebaseUser) {
-        try {
-          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-          if (userDoc.exists()) {
-            setUser(userDoc.data() as User);
-          } else {
-            setUser({
-              id: firebaseUser.uid,
-              email: firebaseUser.email || '',
-              name: firebaseUser.displayName || 'Usuario',
-              role: 'passenger',
-              photo: firebaseUser.photoURL || undefined
-            } as User);
-          }
-        } catch (e) {
-          console.error("Firestore fetch error:", e);
-        }
-      } else {
-        setUser(null);
-      }
-      setLoading(false);
-    });
+    initializeAuth();
 
     return () => {
       isMounted = false;
-      unsubscribe();
       clearTimeout(timer);
     };
   }, []);
@@ -154,7 +160,10 @@ function AppContent({
             path="/login" 
             element={
               user ? (
-                <Navigate to={user.role === 'driver' ? '/driver/dashboard' : user.role === 'admin' ? '/admin' : '/search'} />
+                <Navigate 
+                  to={user.role === 'driver' ? '/driver/dashboard' : user.role === 'admin' ? '/admin' : '/search'} 
+                  replace 
+                />
               ) : (
                 <Login onLogin={handleLogin} />
               )
@@ -164,7 +173,10 @@ function AppContent({
             path="/register" 
             element={
               user ? (
-                <Navigate to={user.role === 'driver' ? '/driver/dashboard' : user.role === 'admin' ? '/admin' : '/search'} />
+                <Navigate 
+                  to={user.role === 'driver' ? '/driver/dashboard' : user.role === 'admin' ? '/admin' : '/search'} 
+                  replace 
+                />
               ) : (
                 <Register onRegister={handleLogin} />
               )

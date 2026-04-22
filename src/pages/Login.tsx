@@ -20,6 +20,21 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  
+  // Secondary safety check: if user is already logged in, redirect immediately
+  React.useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data() as User;
+          onLogin(userData);
+          navigate(userData.role === 'admin' ? '/admin' : userData.role === 'driver' ? '/driver/dashboard' : '/search', { replace: true });
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, [onLogin, navigate]);
 
   const handleGoogleLogin = async () => {
     setLoading(true);
