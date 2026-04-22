@@ -156,14 +156,6 @@ export const PassengerSearch: React.FC = () => {
   };
 
   useEffect(() => {
-    // Pedir siempre la ubicación en cuanto entra
-    const cleanup = requestLocation();
-    return () => {
-      if (cleanup) cleanup();
-    };
-  }, []); // Run once on mount
-
-  useEffect(() => {
     const loadTrips = () => {
       const savedTrips = localStorage.getItem('trips');
       const savedReservations = localStorage.getItem('reservations');
@@ -193,15 +185,6 @@ export const PassengerSearch: React.FC = () => {
             availableSeats: trip.totalSeats - occupiedSeats
           };
         }).filter(trip => trip.availableSeats > 0);
-
-        // Si tenemos la ubicación del usuario, ordenar los viajes para mostrar los más cercanos a su punto de partida.
-        if (userCoords) {
-          tripsWithAvailability.sort((a, b) => {
-            const distA = a.coordinates?.origin ? calculateDistance(a.coordinates.origin.lat, a.coordinates.origin.lng, userCoords.lat, userCoords.lng) : Number.MAX_SAFE_INTEGER;
-            const distB = b.coordinates?.origin ? calculateDistance(b.coordinates.origin.lat, b.coordinates.origin.lng, userCoords.lat, userCoords.lng) : Number.MAX_SAFE_INTEGER;
-            return distA - distB;
-          });
-        }
 
         setTrips(tripsWithAvailability);
         
@@ -239,8 +222,18 @@ export const PassengerSearch: React.FC = () => {
     loadTrips();
     const interval = setInterval(loadTrips, 10000); // Refresh every 10 seconds
     return () => clearInterval(interval);
-  }, [searchDate, searchTerm, userCoords]); // Include userCoords to re-sort when moving
+  }, [searchDate, searchTerm]);
 
+  useEffect(() => {
+    // Auto-request location if permission already granted
+    if (trips.length > 0 && navigator.permissions) {
+      navigator.permissions.query({ name: 'geolocation' as PermissionName }).then(result => {
+        if (result.state === 'granted') {
+          requestLocation();
+        }
+      });
+    }
+  }, [trips.length]);
 
   useEffect(() => {
     if (trips.length === 0) return;
