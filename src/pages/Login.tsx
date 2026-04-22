@@ -42,9 +42,22 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           role: role,
           photo: firebaseUser.photoURL || undefined
         };
+        if (role === 'driver') {
+          userData.vehicle = { model: 'Confirmar modelo', color: 'Confirmar color', plate: 'PENDIENTE' };
+        }
         await setDoc(doc(db, 'users', firebaseUser.uid), userData);
       } else {
         userData = userDoc.data() as User;
+        
+        // Sincronizar el rol si el usuario selecciona otro diferente en la pantalla y entra.
+        // Esto evita que se quede "trabado" como pasajero si quiere probar ser conductor.
+        if (userData.role !== role && role !== 'admin') {
+          userData.role = role;
+          if (role === 'driver' && !userData.vehicle) {
+            userData.vehicle = { model: 'Confirmar modelo', color: 'Confirmar color', plate: 'PENDIENTE' };
+          }
+          await setDoc(doc(db, 'users', firebaseUser.uid), userData, { merge: true });
+        }
       }
       
       onLogin(userData);
