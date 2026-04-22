@@ -24,15 +24,17 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const handleGoogleLogin = async () => {
     setLoading(true);
     setError('');
+    const currentOrigin = window.location.origin.replace('https://', '').replace('http://', '');
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     
-    console.log("Iniciando Google Auth. Modo:", isMobile ? 'Mobile' : 'Desktop');
+    console.log("Debug Auth - Origin:", currentOrigin);
+    console.log("Debug Auth - Full URL:", window.location.href);
     
     try {
       if (isMobile) {
+        setError(`Iniciando redirección segura desde: ${currentOrigin}. Por favor, espera...`);
         // Save selected role to session storage so we can restore it after redirect
         sessionStorage.setItem('pendingRole', role);
-        // Use redirect on mobile to avoid popup 404/blockers
         await signInWithRedirect(auth, googleProvider);
       } else {
         const result = await signInWithPopup(auth, googleProvider);
@@ -121,9 +123,29 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           <motion.div 
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
-            className="bg-red-50 text-red-600 p-4 rounded-2xl text-xs font-bold border border-red-100"
+            className="space-y-2"
           >
-            {error}
+            <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-xs font-bold border border-red-100">
+              {error}
+            </div>
+            <button 
+              type="button" 
+              onClick={() => {
+                const info = `
+                  --- DEBUG INFO ---
+                  Error: ${error}
+                  Origin: ${window.location.origin}
+                  Host: ${window.location.hostname}
+                  AuthDomain: ${auth.config.authDomain}
+                  UA: ${navigator.userAgent}
+                `;
+                console.log(info);
+                alert(info);
+              }}
+              className="text-[10px] text-gray-400 hover:text-red-400 underline w-full text-center"
+            >
+              Ver datos técnicos del error
+            </button>
           </motion.div>
         )}
 

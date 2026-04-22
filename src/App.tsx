@@ -11,7 +11,7 @@ import { Profile } from './pages/Profile';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { Chat } from './pages/Chat';
 import { ChatList } from './pages/ChatList';
-import { User, Trip } from './types';
+import { User, Trip, UserRole } from './types';
 import { cn } from './lib/utils';
 import { NotificationProvider } from './NotificationContext';
 import { auth, db } from './lib/firebase';
@@ -33,6 +33,12 @@ export default function App() {
   };
 
   useEffect(() => {
+    // Safety timeout: ensure loading screen disappears after 8 seconds 
+    // even if Firebase Auth is hanging on mobile
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 8000);
+
     // Handle redirect result from Google login (crucial for mobile)
     getRedirectResult(auth)
       .then(async (result) => {
@@ -83,13 +89,23 @@ export default function App() {
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      clearTimeout(timer);
+    };
   }, []);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
+        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-gray-500 font-medium animate-pulse">Cargando CarpoolConnect...</p>
+        <button 
+          onClick={() => window.location.reload()}
+          className="mt-8 text-xs text-indigo-600 underline"
+        >
+          ¿Tarda demasiado? Reintentar
+        </button>
       </div>
     );
   }
