@@ -1,15 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Car, Shield, Clock, Users, ArrowRight, Download, X, Share } from 'lucide-react';
 import { Logo } from '../components/Logo';
+import { User } from '../types';
 
-export const Home: React.FC = () => {
+interface HomeProps {
+  user: User | null;
+}
+
+export const Home: React.FC<HomeProps> = ({ user }) => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
+    // Redirect if already logged in
+    if (user) {
+      const target = user.role === 'driver' ? '/driver/dashboard' : user.role === 'admin' ? '/admin' : '/search';
+      navigate(target);
+      return;
+    }
+
     setIsStandalone(window.matchMedia('(display-mode: standalone)').matches);
 
     const handleBeforeInstallPrompt = (e: any) => {

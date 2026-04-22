@@ -149,7 +149,7 @@ function AppContent({
       {showNavbar && <Navbar user={user} onLogout={handleLogout} />}
       <main className={cn("max-w-7xl mx-auto px-4 py-8", !showNavbar && "pt-0")}>
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<Home user={user} />} />
           <Route 
             path="/login" 
             element={
