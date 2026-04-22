@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Car, User, LogOut, Search, PlusCircle, MessageSquare, Bell, X, Check, Shield, Navigation, MapPin } from 'lucide-react';
+import { Car, User, LogOut, Search, PlusCircle, MessageSquare, Bell, X, Check, Shield, Navigation, MapPin, Download } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useNotifications } from '../NotificationContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -16,6 +16,8 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const { notifications, unreadCount, markAsRead, markAllAsRead, clearNotifications } = useNotifications();
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBtn, setShowInstallBtn] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -24,17 +26,68 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+
+    // PWA Install Logic
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      // Only show if not already in standalone mode
+      if (!window.matchMedia('(display-mode: standalone)').matches) {
+        setDeferredPrompt(e);
+        setShowInstallBtn(true);
+      }
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    window.addEventListener('appinstalled', () => {
+      setShowInstallBtn(false);
+      setDeferredPrompt(null);
+      console.log('PWA was installed');
+    });
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
   }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setShowInstallBtn(false);
+    }
+    setDeferredPrompt(null);
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-        <Link to="/">
-          <Logo textSize="text-lg" iconSize={20} />
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link to="/">
+            <Logo textSize="text-lg" iconSize={20} />
+          </Link>
+          {showInstallBtn && (
+            <button 
+              onClick={handleInstallClick}
+              className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-full text-xs font-bold hover:bg-indigo-600 hover:text-white transition-all animate-bounce mt-0.5"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Instalar App
+            </button>
+          )}
+        </div>
 
         <div className="flex items-center gap-6">
+          {showInstallBtn && (
+            <button 
+              onClick={handleInstallClick}
+              className="md:hidden p-2 text-indigo-600 bg-indigo-50 rounded-full animate-bounce"
+            >
+              <Download className="w-5 h-5" />
+            </button>
+          )}
           {user && (
             <>
               <div className="relative" ref={dropdownRef}>

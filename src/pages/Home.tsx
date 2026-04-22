@@ -88,6 +88,56 @@ export const Home: React.FC = () => {
         ))}
       </section>
       
+      {/* Download Section */}
+      <section className="bg-indigo-600 rounded-[40px] p-12 text-white overflow-hidden relative group">
+        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 bg-indigo-400 rounded-full blur-3xl opacity-50" />
+        
+        <div className="relative flex flex-col md:flex-row items-center justify-between gap-12">
+          <div className="space-y-6 max-w-lg">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 rounded-full text-xs font-bold uppercase tracking-widest">
+              Nativa en tu celular
+            </div>
+            <h2 className="text-4xl font-black leading-tight">Instala la App y viaja a donde quieras</h2>
+            <p className="text-indigo-100 text-lg">
+              Accede más rápido, recibe notificaciones en tiempo real y gestiona tus viajes con un solo toque desde tu pantalla de inicio.
+            </p>
+            <div className="flex flex-wrap gap-4 pt-4">
+              <div className="space-y-4">
+                <p className="text-sm font-bold text-indigo-200">¿Cómo instalar?</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex items-center gap-3 bg-white/10 p-4 rounded-3xl backdrop-blur-sm border border-white/10">
+                    <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center font-bold">1</div>
+                    <span className="text-sm font-medium">Pulsa "Instalar" en el menú</span>
+                  </div>
+                  <div className="flex items-center gap-3 bg-white/10 p-4 rounded-3xl backdrop-blur-sm border border-white/10">
+                    <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center font-bold">2</div>
+                    <span className="text-sm font-medium">O usa el banner del navegador</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="relative">
+            <div className="w-64 h-[450px] bg-gray-900 rounded-[40px] border-[8px] border-gray-800 shadow-2xl overflow-hidden relative">
+              <div className="absolute top-0 inset-x-0 h-6 bg-gray-800 rounded-b-xl" />
+              <img 
+                src="https://picsum.photos/seed/mobile-app/400/800" 
+                alt="App Mobile" 
+                className="w-full h-full object-cover opacity-80"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-indigo-900/60 to-transparent" />
+              <div className="absolute bottom-8 inset-x-4 text-center">
+                <div className="w-12 h-12 bg-white rounded-2xl mx-auto flex items-center justify-center shadow-lg mb-3">
+                  <Car className="text-indigo-600 w-6 h-6" />
+                </div>
+                <p className="text-sm font-black">CarpoolConnect</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="py-16 border-t border-gray-100 text-center space-y-6">
         <Logo className="justify-center" textSize="text-xl" iconSize={20} />
