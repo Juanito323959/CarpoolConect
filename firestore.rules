@@ -1,0 +1,87 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+    
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // --- User Validation ---
+    function isValidUser(data) {
+      return data.id == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.email == request.auth.token.email &&
+             data.role in ['passenger', 'driver', 'admin'];
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn() && resource.data.id != null; // No blanket reads, but allow discovery
+      allow create: if isOwner(userId) && isValidUser(incoming()) && 
+                    incoming().keys().hasAll(['id', 'name', 'email', 'role']) && 
+                    incoming().keys().size() >= 4;
+      allow update: if isOwner(userId) && isValidUser(incoming()) &&
+                    incoming().role == existing().role && // Role immutable after creation
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'photo', 'vehicle', 'rating', 'totalReviews']);
+    }
+
+    // --- Trip Validation ---
+    function isValidTrip(data) {
+      return data.driverId == request.auth.uid &&
+             data.origin is string && data.origin.size() <= 200 &&
+             data.destination is string && data.destination.size() <= 200 &&
+             data.pricePerSeat is number && data.pricePerSeat >= 0 &&
+             data.totalSeats is number && data.totalSeats > 0 &&
+             data.availableSeats is number && data.availableSeats <= data.totalSeats;
+    }
+
+    match /trips/{tripId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidTrip(incoming()) && isValidId(tripId);
+      allow update: if isSignedIn() && (
+        // Action: Driver edits trip
+        (existing().driverId == request.auth.uid && isValidTrip(incoming()) && 
+         incoming().diff(existing()).affectedKeys().hasOnly(['origin', 'destination', 'departureTime', 'pricePerSeat', 'status', 'availableSeats'])) ||
+        // Action: Passenger books (atomic update of availableSeats)
+        (incoming().diff(existing()).affectedKeys().hasOnly(['availableSeats', 'passengerIds']) &&
+         incoming().availableSeats == existing().availableSeats - 1)
+      );
+      allow delete: if isSignedIn() && existing().driverId == request.auth.uid;
+    }
+
+    // --- Bookings ---
+    match /trips/{tripId}/bookings/{bookingId} {
+      allow read: if isSignedIn() && (isOwner(resource.data.userId) || get(/databases/$(database)/documents/trips/$(tripId)).data.driverId == request.auth.uid);
+      allow create: if isSignedIn() && isOwner(incoming().userId) && incoming().tripId == tripId;
+      allow update: if isSignedIn() && (isOwner(existing().userId) || get(/databases/$(database)/documents/trips/$(tripId)).data.driverId == request.auth.uid);
+      allow delete: if isSignedIn() && isOwner(existing().userId);
+    }
+
+    // --- Chats & Messages ---
+    match /chats/{chatId}/messages/{messageId} {
+      // Simplified: chatId should contain participant UIDs.
+      allow read, write: if isSignedIn() && chatId.contains(request.auth.uid);
+    }
+
+    // --- Notifications ---
+    match /users/{userId}/notifications/{notificationId} {
+      allow read, write: if isOwner(userId);
+    }
+  }
+}

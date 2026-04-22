@@ -1,0 +1,103 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["passenger", "driver", "admin"] },
+        "photo": { "type": "string" },
+        "rating": { "type": "number" },
+        "totalReviews": { "type": "number" },
+        "vehicle": {
+          "type": "object",
+          "properties": {
+            "model": { "type": "string" },
+            "color": { "type": "string" },
+            "plate": { "type": "string" }
+          }
+        }
+      },
+      "required": ["id", "name", "email", "role"]
+    },
+    "Trip": {
+      "title": "Trip",
+      "description": "Carpool trip offered by a driver",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "driverId": { "type": "string" },
+        "driverName": { "type": "string" },
+        "driverPhoto": { "type": "string" },
+        "vehicleInfo": { "$ref": "User/properties/vehicle" },
+        "origin": { "type": "string" },
+        "destination": { "type": "string" },
+        "departureTime": { "type": "string", "format": "date-time" },
+        "totalSeats": { "type": "number" },
+        "availableSeats": { "type": "number" },
+        "pricePerSeat": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "completed", "cancelled"] },
+        "type": { "type": "string" },
+        "coordinates": {
+          "type": "object",
+          "properties": {
+            "origin": { "type": "object" },
+            "destination": { "type": "object" }
+          }
+        },
+        "passengerIds": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["id", "driverId", "origin", "destination", "departureTime", "pricePerSeat"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "A passenger's reservation for a trip",
+      "type": "object",
+      "properties": {
+        "tripId": { "type": "string" },
+        "userId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "cancelled"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["tripId", "userId", "status", "timestamp"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Chat message between users",
+      "type": "object",
+      "properties": {
+        "fromId": { "type": "string" },
+        "toId": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "tripId": { "type": "string" }
+      },
+      "required": ["fromId", "toId", "text", "timestamp"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Public and private user profile information"
+    },
+    "trips/{tripId}": {
+      "schema": "Trip",
+      "description": "Active and past trips"
+    },
+    "trips/{tripId}/bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Bookings specific to a trip"
+    },
+    "chats/{chatId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Messages within a specific chat conversation"
+    },
+    "users/{userId}/notifications/{notificationId}": {
+      "schema": "object",
+      "description": "User specific notifications"
+    }
+  }
+}

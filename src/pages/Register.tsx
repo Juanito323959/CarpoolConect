@@ -5,6 +5,9 @@ import { User as UserIcon, Mail, Lock, UserPlus, Car, Users, Camera, Image as Im
 import { User, UserRole } from '../types';
 import { cn } from '../lib/utils';
 import { Logo } from '../components/Logo';
+import { auth, db } from '../lib/firebase';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 
 interface RegisterProps {
   onRegister: (user: User) => void;
@@ -18,6 +21,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegister }) => {
   const [vehicle, setVehicle] = useState({ model: '', color: '', plate: '' });
   const [photo, setPhoto] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
@@ -79,40 +83,42 @@ export const Register: React.FC<RegisterProps> = ({ onRegister }) => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
     
-    // Check registered users in localStorage
-    const registeredUsers = JSON.parse(localStorage.getItem('users') || '[]');
-    const existingUser = registeredUsers.find((u: User) => u.email.toLowerCase() === email.toLowerCase());
-    
-    if (existingUser) {
-      if (existingUser.role !== role) {
-        setError(`Este correo ya está registrado como ${existingUser.role === 'driver' ? 'conductor' : 'pasajero'}. No puedes cambiar de rol.`);
-        return;
-      }
-      // If same role, just "login" them
-      onRegister(existingUser);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+      
+      const userData: User = {
+        id: firebaseUser.uid,
+        name,
+        email,
+        role,
+        photo,
+        vehicle: role === 'driver' ? vehicle : undefined,
+        rating: 5.0,
+        totalReviews: 0
+      };
+      
+      await setDoc(doc(db, 'users', firebaseUser.uid), userData);
+      
+      onRegister(userData);
       navigate(role === 'driver' ? '/driver/dashboard' : '/search');
-      return;
+    } catch (err: any) {
+      console.error(err);
+      if (err.code === 'auth/email-already-in-use') {
+        setError('Este correo ya está en uso.');
+      } else if (err.code === 'auth/weak-password') {
+        setError('La contraseña debe tener al menos 6 caracteres.');
+      } else {
+        setError('Error al registrarse. Inténtalo de nuevo.');
+      }
+    } finally {
+      setLoading(false);
     }
-    
-    // Mock register logic
-    const mockUser: User = {
-      id: Math.random().toString(36).substr(2, 9),
-      name,
-      email,
-      role,
-      photo,
-      vehicle: role === 'driver' ? vehicle : undefined
-    };
-    
-    registeredUsers.push(mockUser);
-    localStorage.setItem('users', JSON.stringify(registeredUsers));
-    
-    onRegister(mockUser);
-    navigate(role === 'driver' ? '/driver/dashboard' : '/search');
   };
 
   return (
