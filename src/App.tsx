@@ -49,7 +49,7 @@ export default function App() {
           if (userDoc.exists()) {
             setUser(userDoc.data() as User);
           } else {
-            const pendingRole = sessionStorage.getItem('pendingRole') as UserRole || 'passenger';
+            const pendingRole = localStorage.getItem('pendingRole') as UserRole || 'passenger';
             const userData = {
               id: firebaseUser.uid,
               email: firebaseUser.email || '',
@@ -59,7 +59,7 @@ export default function App() {
             } as User;
             await setDoc(doc(db, 'users', firebaseUser.uid), userData);
             setUser(userData);
-            sessionStorage.removeItem('pendingRole');
+            localStorage.removeItem('pendingRole');
           }
         }
       } catch (error) {
@@ -150,8 +150,26 @@ function AppContent({
       <main className={cn("max-w-7xl mx-auto px-4 py-8", !showNavbar && "pt-0")}>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login onLogin={handleLogin} />} />
-          <Route path="/register" element={<Register onRegister={handleLogin} />} />
+          <Route 
+            path="/login" 
+            element={
+              user ? (
+                <Navigate to={user.role === 'driver' ? '/driver/dashboard' : user.role === 'admin' ? '/admin' : '/search'} />
+              ) : (
+                <Login onLogin={handleLogin} />
+              )
+            } 
+          />
+          <Route 
+            path="/register" 
+            element={
+              user ? (
+                <Navigate to={user.role === 'driver' ? '/driver/dashboard' : user.role === 'admin' ? '/admin' : '/search'} />
+              ) : (
+                <Register onRegister={handleLogin} />
+              )
+            } 
+          />
           
           <Route 
             path="/driver/dashboard" 

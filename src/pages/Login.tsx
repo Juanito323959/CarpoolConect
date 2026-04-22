@@ -32,9 +32,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     
     try {
       if (isMobile) {
-        setError(`Iniciando redirección segura desde: ${currentOrigin}. Por favor, espera...`);
-        // Save selected role to session storage so we can restore it after redirect
-        sessionStorage.setItem('pendingRole', role);
+        setLoading(true);
+        setError('Procesando autenticación con Google... por favor espera.');
+        // Use localStorage for better persistence in PWA redirects
+        localStorage.setItem('pendingRole', role);
         await signInWithRedirect(auth, googleProvider);
       } else {
         const result = await signInWithPopup(auth, googleProvider);
