@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { Home } from './pages/Home';
 import { Login } from './pages/Login';
@@ -177,9 +177,19 @@ function AppContent({
   handleLogin: (u: User) => void;
 }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const isHomePage = location.pathname === '/';
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
   const showNavbar = user && !isHomePage && !isAuthPage;
+
+  // Aggressive redirection for authenticated users on auth pages
+  React.useEffect(() => {
+    if (user && isAuthPage) {
+      console.log("Aggressive redirect triggered for:", user.role);
+      const target = user.role === 'driver' ? '/driver/dashboard' : user.role === 'admin' ? '/admin' : '/search';
+      navigate(target, { replace: true });
+    }
+  }, [user, isAuthPage, navigate]);
 
   return (
     <div className={cn("min-h-screen bg-gray-50", showNavbar && "pt-16")}>
