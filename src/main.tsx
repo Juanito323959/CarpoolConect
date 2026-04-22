@@ -7,17 +7,16 @@ import {ErrorBoundary} from './components/ErrorBoundary.tsx';
 import { doc, getDocFromServer } from 'firebase/firestore';
 import { db } from './lib/firebase';
 
-async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-    console.log("Firebase connection successful");
-  } catch (error) {
-    if(error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration.");
-    }
-  }
-}
-testConnection();
+// Removed blocking testConnection for faster mobile loading
+// async function testConnection() {
+//   try {
+//     await getDocFromServer(doc(db, 'test', 'connection'));
+//     console.log("Firebase connection successful");
+//   } catch (error) {
+//     console.error("Firebase check bypassed:", error);
+//   }
+// }
+// testConnection();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
