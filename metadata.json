@@ -1,0 +1,5 @@
+{
+  "name": "CarpoolConnect",
+  "description": "Una plataforma moderna de carpooling para conectar conductores y pasajeros, facilitando viajes compartidos, económicos y sostenibles.",
+  "requestFramePermissions": ["geolocation", "camera"]
+}
