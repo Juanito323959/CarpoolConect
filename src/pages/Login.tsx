@@ -6,7 +6,7 @@ import { User, UserRole } from '../types';
 import { cn } from '../lib/utils';
 import { Logo } from '../components/Logo';
 import { auth, googleProvider, db, handleFirestoreError } from '../lib/firebase';
-import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { signInWithEmailAndPassword, signInWithPopup, signInWithRedirect } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface LoginProps {
@@ -24,49 +24,41 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const handleGoogleLogin = async () => {
     setLoading(true);
     setError('');
-    console.log("Iniciando Google Auth. Modo:", window.matchMedia('(display-mode: standalone)').matches ? 'PWA' : 'Web');
-    console.log("URL actual:", window.location.href);
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    console.log("Iniciando Google Auth. Modo:", isMobile ? 'Mobile' : 'Desktop');
     
     try {
-      // In standalone PWAs or some mobile browsers, signInWithPopup can fail or lead to 404s
-      // due to how popup windows are handled. We check if it's mobile or PWA.
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      
-      let result;
-      if (isMobile && window.matchMedia('(display-mode: standalone)').matches) {
-        // Option A: Could try signInWithRedirect, but it requires more complex setup
-        // For now we attempt Popup but with a fallback/better error log
-        result = await signInWithPopup(auth, googleProvider);
+      if (isMobile) {
+        // Use redirect on mobile to avoid popup 404/blockers
+        await signInWithRedirect(auth, googleProvider);
+        // Page will redirect, so no need to handle result here
       } else {
-        result = await signInWithPopup(auth, googleProvider);
+        const result = await signInWithPopup(auth, googleProvider);
+        const firebaseUser = result.user;
+        
+        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+        
+        let userData: User;
+        if (!userDoc.exists()) {
+          userData = {
+            id: firebaseUser.uid,
+            name: firebaseUser.displayName || 'Usuario',
+            email: firebaseUser.email || '',
+            role: role,
+            photo: firebaseUser.photoURL || undefined
+          };
+          await setDoc(doc(db, 'users', firebaseUser.uid), userData);
+        } else {
+          userData = userDoc.data() as User;
+        }
+        
+        onLogin(userData);
+        navigate(userData.role === 'admin' ? '/admin' : userData.role === 'driver' ? '/driver/dashboard' : '/search');
       }
-      
-      const firebaseUser = result.user;
-      console.log("Auth exitoso para:", firebaseUser.email);
-      
-      // Check if user exists in Firestore
-      const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-      
-      let userData: User;
-      if (!userDoc.exists()) {
-        console.log("Creando nuevo perfil en Firestore...");
-        userData = {
-          id: firebaseUser.uid,
-          name: firebaseUser.displayName || 'Usuario',
-          email: firebaseUser.email || '',
-          role: role,
-          photo: firebaseUser.photoURL || undefined
-        };
-        await setDoc(doc(db, 'users', firebaseUser.uid), userData);
-      } else {
-        userData = userDoc.data() as User;
-        console.log("Perfil existente encontrado");
-      }
-      
-      onLogin(userData);
-      navigate(userData.role === 'admin' ? '/admin' : userData.role === 'driver' ? '/driver/dashboard' : '/search');
     } catch (err: any) {
       console.error("Error completo de Auth:", err);
+      // ... same error handling
       if (err.code === 'auth/popup-closed-by-user') {
         setError('Inicio de sesión cancelado.');
       } else if (err.code === 'auth/popup-blocked') {

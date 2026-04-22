@@ -15,7 +15,7 @@ import { User, Trip } from './types';
 import { cn } from './lib/utils';
 import { NotificationProvider } from './NotificationContext';
 import { auth, db } from './lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, getRedirectResult } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 export default function App() {
@@ -33,6 +33,31 @@ export default function App() {
   };
 
   useEffect(() => {
+    // Handle redirect result from Google login (crucial for mobile)
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (result) {
+          const firebaseUser = result.user;
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          if (userDoc.exists()) {
+            setUser(userDoc.data() as User);
+          } else {
+            const userData = {
+              id: firebaseUser.uid,
+              email: firebaseUser.email || '',
+              name: firebaseUser.displayName || 'Usuario',
+              role: 'passenger',
+              photo: firebaseUser.photoURL || undefined
+            } as User;
+            await setDoc(doc(db, 'users', firebaseUser.uid), userData);
+            setUser(userData);
+          }
+        }
+      })
+      .catch((error) => {
+        console.error("Error al procesar el redireccionamiento de auth:", error);
+      });
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         // Fetch user document from Firestore
