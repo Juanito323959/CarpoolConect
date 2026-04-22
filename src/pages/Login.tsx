@@ -24,52 +24,40 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const handleGoogleLogin = async () => {
     setLoading(true);
     setError('');
-    const currentOrigin = window.location.origin.replace('https://', '').replace('http://', '');
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    
-    console.log("Debug Auth - Origin:", currentOrigin);
-    console.log("Debug Auth - Full URL:", window.location.href);
     
     try {
-      if (isMobile) {
-        setLoading(true);
-        setError('Procesando autenticación con Google... por favor espera.');
-        // Use localStorage for better persistence in PWA redirects
-        localStorage.setItem('pendingRole', role);
-        await signInWithRedirect(auth, googleProvider);
+      // Forzamos uso de Popup incluso en móvil (PWAs modernas lo soportan como Custom Tabs).
+      // Esto evita los re-loads que rompen el estado en iOS Safari y Android Standalone.
+      const result = await signInWithPopup(auth, googleProvider);
+      const firebaseUser = result.user;
+      
+      const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+      
+      let userData: User;
+      if (!userDoc.exists()) {
+        userData = {
+          id: firebaseUser.uid,
+          name: firebaseUser.displayName || 'Usuario',
+          email: firebaseUser.email || '',
+          role: role,
+          photo: firebaseUser.photoURL || undefined
+        };
+        await setDoc(doc(db, 'users', firebaseUser.uid), userData);
       } else {
-        const result = await signInWithPopup(auth, googleProvider);
-        const firebaseUser = result.user;
-        
-        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-        
-        let userData: User;
-        if (!userDoc.exists()) {
-          userData = {
-            id: firebaseUser.uid,
-            name: firebaseUser.displayName || 'Usuario',
-            email: firebaseUser.email || '',
-            role: role,
-            photo: firebaseUser.photoURL || undefined
-          };
-          await setDoc(doc(db, 'users', firebaseUser.uid), userData);
-        } else {
-          userData = userDoc.data() as User;
-        }
-        
-        onLogin(userData);
-        navigate(userData.role === 'admin' ? '/admin' : userData.role === 'driver' ? '/driver/dashboard' : '/search');
+        userData = userDoc.data() as User;
       }
+      
+      onLogin(userData);
+      navigate(userData.role === 'admin' ? '/admin' : userData.role === 'driver' ? '/driver/dashboard' : '/search');
+      
     } catch (err: any) {
       console.error("Error completo de Auth:", err);
       if (err.code === 'auth/popup-closed-by-user') {
-        setError('La ventana de Google se cerró antes de completar el inicio de sesión. Por favor, mantén la ventana abierta hasta finalizar.');
+        setError('La ventana de Google se cerró antes de tiempo.');
       } else if (err.code === 'auth/popup-blocked') {
-        setError('El navegador bloqueó la ventana emergente. Por favor, permite las ventanas emergentes para este sitio.');
-      } else if (err.code === 'auth/network-request-failed') {
-        setError('Error de red. Verifica tu conexión a internet.');
+        setError('El navegador bloqueó la ventana emergente. Por favor, permite popups.');
       } else {
-        setError(`Error (${err.code || '404'}): El servicio de Google no respondió correctamente en este dispositivo.`);
+        setError(`Falló Google Login. Intenta de nuevo.`);
       }
     } finally {
       setLoading(false);

@@ -43,17 +43,21 @@ export default function App() {
 
     const initializeAuth = async () => {
       try {
+        console.log("Checking redirect result...");
         // 1. Handle redirect result first (crucial for mobile/PWA)
         const result = await getRedirectResult(auth);
+        console.log("Redirect result:", result ? "Found user" : "No result");
+        
         if (result && isMounted) {
           const firebaseUser = result.user;
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
           
+          let userData: User;
           if (userDoc.exists()) {
-            setUser(userDoc.data() as User);
+            userData = userDoc.data() as User;
           } else {
             const pendingRole = localStorage.getItem('pendingRole') as UserRole || 'passenger';
-            const userData = {
+            userData = {
               id: firebaseUser.uid,
               email: firebaseUser.email || '',
               name: firebaseUser.displayName || 'Usuario',
@@ -61,9 +65,12 @@ export default function App() {
               photo: firebaseUser.photoURL || undefined
             } as User;
             await setDoc(doc(db, 'users', firebaseUser.uid), userData);
-            setUser(userData);
             localStorage.removeItem('pendingRole');
           }
+          
+          setUser(userData);
+          // For PWA explicitly force the navigation via window.location as fallback if needed.
+          // Because React Router context is lower, App handles global state. The AppContent will navigate.
         }
       } catch (error: any) {
         console.error("Redirect handling error:", error);
