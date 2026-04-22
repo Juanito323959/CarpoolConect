@@ -21,6 +21,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // Unified login handler for Firebase
   const handleLogin = (userData: User) => {
@@ -51,7 +52,6 @@ export default function App() {
           if (userDoc.exists()) {
             setUser(userDoc.data() as User);
           } else {
-            // Restore role from localStorage if it's a new user
             const pendingRole = localStorage.getItem('pendingRole') as UserRole || 'passenger';
             const userData = {
               id: firebaseUser.uid,
@@ -65,48 +65,79 @@ export default function App() {
             localStorage.removeItem('pendingRole');
           }
         }
-
-        // 2. Setup standard listener
-        onAuthStateChanged(auth, async (firebaseUser) => {
-          if (!isMounted) return;
-          
-          if (firebaseUser) {
-            try {
-              const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-              if (userDoc.exists()) {
-                setUser(userDoc.data() as User);
-              } else {
-                // If it's a new user and we didn't handle it in redirect result
-                // we fallback to passenger but wait a bit to see if redirect catch it
-                setUser((prev) => prev || {
-                  id: firebaseUser.uid,
-                  email: firebaseUser.email || '',
-                  name: firebaseUser.displayName || 'Usuario',
-                  role: 'passenger',
-                  photo: firebaseUser.photoURL || undefined
-                } as User);
-              }
-            } catch (e) {
-              console.error("Firestore fetch error:", e);
-            }
-          } else {
-            setUser(null);
-          }
-          setLoading(false);
-        });
-      } catch (error) {
-        console.error("Initialization error:", error);
-        setLoading(false);
+      } catch (error: any) {
+        console.error("Redirect handling error:", error);
+        if (error.code === 'auth/unauthorized-domain') {
+          setAuthError('Dominio no autorizado. Verifica la configuración de Firebase.');
+        } else if (error.code === 'auth/internal-error' || error.code === 'auth/network-request-failed') {
+          // Do nothing, standard listeners will retry
+        } else {
+          setAuthError('Algo salió mal durante el inicio de sesión. Por favor, intenta de nuevo.');
+        }
       }
+
+      // 2. Setup standard listener
+      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (!isMounted) return;
+        
+        if (firebaseUser) {
+          try {
+            const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+            if (userDoc.exists()) {
+              setUser(userDoc.data() as User);
+            } else {
+              setUser((prev) => prev || {
+                id: firebaseUser.uid,
+                email: firebaseUser.email || '',
+                name: firebaseUser.displayName || 'Usuario',
+                role: 'passenger',
+                photo: firebaseUser.photoURL || undefined
+              } as User);
+            }
+          } catch (e) {
+            console.error("Firestore fetch error:", e);
+          }
+        } else {
+          setUser(null);
+        }
+        setLoading(false);
+      });
+
+      return unsubscribe;
     };
 
-    initializeAuth();
+    let authUnsubscribe: (() => void) | undefined;
+    initializeAuth().then(unsub => {
+      authUnsubscribe = unsub;
+    });
 
     return () => {
       isMounted = false;
+      if (authUnsubscribe) authUnsubscribe();
       clearTimeout(timer);
     };
   }, []);
+
+  if (authError) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6 text-center">
+        <div className="w-16 h-16 bg-red-50 text-red-600 rounded-3xl flex items-center justify-center mb-6">
+          <XCircle className="w-8 h-8" />
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Lo sentimos</h2>
+        <p className="text-gray-500 mb-8 max-w-sm">{authError}</p>
+        <button 
+          onClick={() => {
+            setAuthError(null);
+            window.location.href = '/login';
+          }}
+          className="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-indigo-700 transition-all"
+        >
+          Volver a intentar
+        </button>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
