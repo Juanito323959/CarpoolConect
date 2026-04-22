@@ -123,29 +123,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           <motion.div 
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
-            className="space-y-2"
+            className="bg-red-50 text-red-600 p-4 rounded-2xl text-xs font-bold border border-red-100"
           >
-            <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-xs font-bold border border-red-100">
-              {error}
-            </div>
-            <button 
-              type="button" 
-              onClick={() => {
-                const info = `
-                  --- DEBUG INFO ---
-                  Error: ${error}
-                  Origin: ${window.location.origin}
-                  Host: ${window.location.hostname}
-                  AuthDomain: ${auth.config.authDomain}
-                  UA: ${navigator.userAgent}
-                `;
-                console.log(info);
-                alert(info);
-              }}
-              className="text-[10px] text-gray-400 hover:text-red-400 underline w-full text-center"
-            >
-              Ver datos técnicos del error
-            </button>
+            {error}
           </motion.div>
         )}
 
