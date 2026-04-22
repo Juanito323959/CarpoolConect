@@ -30,9 +30,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     
     try {
       if (isMobile) {
+        // Save selected role to session storage so we can restore it after redirect
+        sessionStorage.setItem('pendingRole', role);
         // Use redirect on mobile to avoid popup 404/blockers
         await signInWithRedirect(auth, googleProvider);
-        // Page will redirect, so no need to handle result here
       } else {
         const result = await signInWithPopup(auth, googleProvider);
         const firebaseUser = result.user;
@@ -58,9 +59,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       }
     } catch (err: any) {
       console.error("Error completo de Auth:", err);
-      // ... same error handling
       if (err.code === 'auth/popup-closed-by-user') {
-        setError('Inicio de sesión cancelado.');
+        setError('La ventana de Google se cerró antes de completar el inicio de sesión. Por favor, mantén la ventana abierta hasta finalizar.');
       } else if (err.code === 'auth/popup-blocked') {
         setError('El navegador bloqueó la ventana emergente. Por favor, permite las ventanas emergentes para este sitio.');
       } else if (err.code === 'auth/network-request-failed') {

@@ -42,15 +42,17 @@ export default function App() {
           if (userDoc.exists()) {
             setUser(userDoc.data() as User);
           } else {
+            const pendingRole = sessionStorage.getItem('pendingRole') as UserRole || 'passenger';
             const userData = {
               id: firebaseUser.uid,
               email: firebaseUser.email || '',
               name: firebaseUser.displayName || 'Usuario',
-              role: 'passenger',
+              role: pendingRole,
               photo: firebaseUser.photoURL || undefined
             } as User;
             await setDoc(doc(db, 'users', firebaseUser.uid), userData);
             setUser(userData);
+            sessionStorage.removeItem('pendingRole');
           }
         }
       })
