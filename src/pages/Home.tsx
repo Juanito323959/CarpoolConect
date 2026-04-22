@@ -1,10 +1,43 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'motion/react';
-import { Car, Shield, Clock, Users, ArrowRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Car, Shield, Clock, Users, ArrowRight, Download } from 'lucide-react';
 import { Logo } from '../components/Logo';
 
 export const Home: React.FC = () => {
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBtn, setShowInstallBtn] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      if (!window.matchMedia('(display-mode: standalone)').matches) {
+        setDeferredPrompt(e);
+        setShowInstallBtn(true);
+      }
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', () => {
+      setShowInstallBtn(false);
+      setDeferredPrompt(null);
+    });
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setShowInstallBtn(false);
+    }
+    setDeferredPrompt(null);
+  };
+
   return (
     <div className="space-y-20">
       {/* Hero Section */}
@@ -33,6 +66,16 @@ export const Home: React.FC = () => {
                 Empezar ahora
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Link>
+              
+              {showInstallBtn && (
+                <button 
+                  onClick={handleInstallClick}
+                  className="bg-white text-indigo-600 border-2 border-indigo-50 px-8 py-4 rounded-2xl font-bold text-lg hover:border-indigo-600 transition-all flex items-center gap-2 group shadow-xl shadow-indigo-500/5 animate-pulse"
+                >
+                  <Download className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  Descargar App
+                </button>
+              )}
             </div>
           </motion.div>
 
