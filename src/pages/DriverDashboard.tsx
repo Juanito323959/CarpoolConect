@@ -66,6 +66,25 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ user }) => {
     { id: 6, name: 'Sáb' },
   ];
 
+  const [currentLocation, setCurrentLocation] = useState<{lat: number, lng: number} | null>(null);
+
+  useEffect(() => {
+    // Escuchar ubicación permanentemente para conductores en cuanto inician
+    if (navigator.geolocation) {
+      const watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          setCurrentLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+        },
+        (error) => console.error("Error geolocalización driver:", error),
+        { enableHighAccuracy: true }
+      );
+      return () => navigator.geolocation.clearWatch(watchId);
+    }
+  }, []);
+
   useEffect(() => {
     const savedTrips = localStorage.getItem('trips');
     if (savedTrips) {
@@ -84,40 +103,40 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ user }) => {
   }, [user.id]);
 
   useEffect(() => {
-    if (isAdding && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const coords = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          };
-          
-          setNewTrip(prev => ({
-            ...prev,
-            coordinates: { ...prev.coordinates, origin: coords }
-          }));
+    if (isAdding) {
+      const fetchCoords = currentLocation || (navigator.geolocation ? undefined : null);
+      
+      const processCoords = (coords: {lat: number, lng: number}) => {
+        setNewTrip(prev => ({
+          ...prev,
+          coordinates: { ...prev.coordinates, origin: coords }
+        }));
 
-          // Reverse geocode to get address name
-          if (window.google && window.google.maps) {
-            const geocoder = new google.maps.Geocoder();
-            geocoder.geocode({ location: coords }, (results, status) => {
-              if (status === 'OK' && results && results[0]) {
-                const placeName = extractPlaceName(results);
-                setNewTrip(prev => ({
-                  ...prev,
-                  origin: placeName || results[0].formatted_address
-                }));
-              }
-            });
-          }
-        },
-        (error) => {
-          console.error("Error getting current location:", error);
-        },
-        { enableHighAccuracy: true }
-      );
+        if (window.google && window.google.maps) {
+          const geocoder = new google.maps.Geocoder();
+          geocoder.geocode({ location: coords }, (results, status) => {
+            if (status === 'OK' && results && results[0]) {
+              const placeName = extractPlaceName(results);
+              setNewTrip(prev => ({
+                ...prev,
+                origin: placeName || results[0].formatted_address
+              }));
+            }
+          });
+        }
+      };
+
+      if (fetchCoords) {
+        processCoords(fetchCoords);
+      } else if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => processCoords({ lat: position.coords.latitude, lng: position.coords.longitude }),
+          (error) => console.error("Error getting current location:", error),
+          { enableHighAccuracy: true }
+        );
+      }
     }
-  }, [isAdding]);
+  }, [isAdding, currentLocation]);
 
   const handleAddTrip = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1089,23 +1108,28 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ user }) => {
                       <button
                         type="button"
                         onClick={() => {
-                          if (navigator.geolocation) {
+                          const useCoords = (coords: {lat: number, lng: number}) => {
+                            setNewTrip(prev => ({
+                              ...prev,
+                              coordinates: { ...prev.coordinates, origin: coords }
+                            }));
+                            // Reverse geocode
+                            if (window.google && window.google.maps) {
+                              const geocoder = new google.maps.Geocoder();
+                              geocoder.geocode({ location: coords }, (results, status) => {
+                                if (status === 'OK' && results) {
+                                  const placeName = extractPlaceName(results);
+                                  setNewTrip(prev => ({ ...prev, origin: placeName || results[0].formatted_address }));
+                                }
+                              });
+                            }
+                          };
+
+                          if (currentLocation) {
+                            useCoords(currentLocation);
+                          } else if (navigator.geolocation) {
                             navigator.geolocation.getCurrentPosition((position) => {
-                              const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
-                              setNewTrip(prev => ({
-                                ...prev,
-                                coordinates: { ...prev.coordinates, origin: coords }
-                              }));
-                              // Reverse geocode
-                              if (window.google && window.google.maps) {
-                                const geocoder = new google.maps.Geocoder();
-                                geocoder.geocode({ location: coords }, (results, status) => {
-                                  if (status === 'OK' && results) {
-                                    const placeName = extractPlaceName(results);
-                                    setNewTrip(prev => ({ ...prev, origin: placeName || results[0].formatted_address }));
-                                  }
-                                });
-                              }
+                              useCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
                             });
                           }
                         }}
